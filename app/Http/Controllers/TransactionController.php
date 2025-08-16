@@ -63,7 +63,7 @@ class TransactionController extends Controller
             }
 
             if($request->type === 'withdraw'){
-                if($user->saldo < $request->amount){
+                if($user->balance < $request->amount){
                     return response()->json([
                         'message' => 'insufficient balance'
                     , 400]);
@@ -77,7 +77,7 @@ class TransactionController extends Controller
                         'message' => 'Recipient is required for purchase'
                     ], 422);
                 }
-                if($user->saldo < $request->amount) {
+                if($user->balance < $request->amount) {
                     return response()->json([
                         'message' => 'insufficient balance'                    
                     ], 400);

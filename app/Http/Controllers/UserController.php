@@ -50,7 +50,7 @@ class UserController extends Controller
             'email' => $request->email,
             'password' => bcrypt($request->password),
             'role' => $request->role,
-            'saldo' => $request->saldo ?? 0
+            'balance' => $request->balance ?? 0
         ]);
 
         return response()->json([

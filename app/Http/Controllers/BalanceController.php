@@ -18,8 +18,9 @@ class BalanceController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'role' => $user->role,
-                'saldo' => $user->saldo,
+                'balance' => $user->balance,
             ],
+
             'last_update' => $user->updated_at
         ]);
     }
@@ -33,7 +34,7 @@ class BalanceController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'role' => $user->role,
-                'saldo' => $user->saldo,
+                'balance' => $user->balance,
             ],
             'last_updated' => $user->updated_at
             ]);
@@ -48,7 +49,7 @@ class BalanceController extends Controller
         $bank  = Auth::user();
         $target = User::findOrFail($request->target_user_id);
 
-        $target->saldo += $request->amount;
+        $target->balance += $request->amount;
         $target->save();
 
         $transaction = Transaction::create([
@@ -62,7 +63,7 @@ class BalanceController extends Controller
             'status' => 'success',
             'messages' => 'Balance has been topped up successfull',
             'from' => $bank->only(['id', 'name', 'role']),
-            'to' => $target->only(['id', 'name', 'role', 'saldo']),
+            'to' => $target->only(['id', 'name', 'role', 'balance']),
             'transaction_id' => $transaction->id,
             'created_at' => $transaction->created_at
         ]);
@@ -77,14 +78,14 @@ class BalanceController extends Controller
         $bank  = Auth::user();
         $target = User::findOrFail($request->target_user_id);
 
-        if($target->saldo < $request->amount){
+        if($target->balance < $request->amount){
             return response()->json([
                 'status' => 'error',
                 'message' => 'Insufficient balance for this user'
             ]);
         }
 
-        $target->saldo -= $request->amount;
+        $target->balance -= $request->amount;
         $target->save();
 
         $transaction = Transaction::create([
@@ -97,7 +98,7 @@ class BalanceController extends Controller
         return response()->json([
             'status' => 'success',
             'mesagge' => '',
-            'from' => $target->only(['id', 'name', 'role', 'saldo']),
+            'from' => $target->only(['id', 'name', 'role', 'balance']),
             'processed_by' => $bank->only(['id', 'name', 'role']),
             'transaction_id' => $transaction->id,
             'created_at' => $transaction->created_at

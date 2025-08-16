@@ -31,7 +31,7 @@ class AuthController extends Controller
             'email' => $request->email,
             'password' => bcrypt($request->password),
             'role' => 'siswa',
-            'saldo' => 0 
+            'balance' => 0 
         ]);
 
         $token = $siswa->createToken('api')->plainTextToken;
@@ -45,7 +45,7 @@ class AuthController extends Controller
                     'username' => $siswa->username,
                     'email' => $siswa->email,
                     'role' => $siswa->role,
-                    'saldo' => $siswa->saldo
+                    'balance' => $siswa->balance
                 ]
             ],
             'token' => $token
@@ -84,7 +84,7 @@ class AuthController extends Controller
                     'username' => $user->username,
                     'email' => $user->email,
                     'role' => $user->role,
-                    'saldo' => $user->saldo
+                    'balance' => $user->balance
                 ]
             ],
             'token' => $token
@@ -112,7 +112,7 @@ class AuthController extends Controller
                 'username' => $user->username,
                 'email' => $user->email,
                 'role' => $user->role,
-                'saldo' => $user->saldo
+                'balance' => $user->balance
             ]
         ], 200);
     }
