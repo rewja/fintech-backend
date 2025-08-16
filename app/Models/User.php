@@ -20,6 +20,17 @@ class User extends Authenticatable
      */
     protected $guarded = [];
 
+    public function products(){
+        return $this->hasMany(Product::class, 'owner_id');
+    }
+
+    public function transactions(){
+        return $this->hasMany(Transaction::class, 'user_id');
+    }
+
+    public function receivedTransactions(){
+        return $this->hasMany(Transaction::class, 'to_user_id');
+    }
     /**
      * The attributes that should be hidden for serialization.
      *

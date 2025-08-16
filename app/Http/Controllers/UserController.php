@@ -9,49 +9,55 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
-    public function getAllUsers(){
+    public function index()
+    {
         $users = User::all();
-
         return response()->json([
-            "data" => $users
-        ]);
+            'success' => true,
+            'data' => $users
+        ], 200);
     }
 
-    public function show($id){
+    public function show($id)
+    {
         $user = User::findOrFail($id);
-
         return response()->json([
+            'success' => true,
             'data' => $user
-        ]);
+        ], 200);
     }
 
-    public function store(Request $request){
-        $val = Validator::make($request->all(), [
+    public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:100',
-            'username' => 'required|unique:users',
+            'username' => 'required|string|max:50|unique:users',
             'email' => 'required|email|unique:users',
             'password' => 'required|min:8',
-            'role' => ['required', Rule::in(['admin','bank','kantin','bc','siswa'])]
+            'role' => ['required', Rule::in(['admin','bank','kantin', 'bc','siswa'])]
         ]);
 
-        if($val->fails()){
+        if ($validator->fails()) {
             return response()->json([
-                'error' => $val->errors()
-            ]);
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 422);
         }
 
         $user = User::create([
             'name' => $request->name,
             'username' => $request->username,
             'email' => $request->email,
-            'password' => $request->password,
+            'password' => bcrypt($request->password),
             'role' => $request->role,
+            'saldo' => $request->saldo ?? 0
         ]);
 
         return response()->json([
-            'message' => 'User created susccessfully',
+            'success' => true,
+            'message' => 'User created successfully',
             'data' => $user
-        ]);
+        ], 201);
     }
 
     public function update(Request $request, $id)
@@ -61,30 +67,30 @@ class UserController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:100',
             'username' => ['sometimes', Rule::unique('users')->ignore($user->id)],
-            'email' => ['sometimes','email', Rule::unique('users')->ignore($user->id)],
+            'email' => ['sometimes', 'email', Rule::unique('users')->ignore($user->id)],
             'password' => 'nullable|min:8',
-            'role' => ['sometimes', Rule::in(['admin','bank','kantin','siswa'])]
+            'role' => ['sometimes', Rule::in(['admin','bank','kantin', 'bc', 'siswa'])]
         ]);
-        
+
         if ($validator->fails()) {
             return response()->json([
-                'message' => 'Validation error',
+                'success' => false,
                 'errors' => $validator->errors()
             ], 422);
         }
-        
-        // Update manual
+
         $data = $request->only(['name', 'username', 'email', 'role']);
         if ($request->filled('password')) {
             $data['password'] = bcrypt($request->password);
         }
+
         $user->update($data);
-        
+
         return response()->json([
             'success' => true,
-            'message' => 'User updated',
-            'data' => $user
-        ]);        
+            'message' => 'User updated successfully',
+            'data' => $user->fresh()
+        ], 200);
     }
 
     public function destroy($id)
@@ -95,6 +101,6 @@ class UserController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'User deleted successfully'
-        ]);
+        ], 200);
     }
 }

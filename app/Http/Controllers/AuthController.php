@@ -12,9 +12,9 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $val = Validator::make($request->all(), [
-            'name' => 'required',
-            'username' => 'required|unique:users,username',
-            'email' => 'required|email',
+            'name' => 'required|string|max:100',
+            'username' => 'required|string|max:50|unique:users,username',
+            'email' => 'required|email|unique:users,email',
             'password' => 'required|min:8|confirmed'
         ]);
 
@@ -30,7 +30,8 @@ class AuthController extends Controller
             'username' => $request->username,
             'email' => $request->email,
             'password' => bcrypt($request->password),
-            'role' => 'siswa'
+            'role' => 'siswa',
+            'saldo' => 0 
         ]);
 
         $token = $siswa->createToken('api')->plainTextToken;
@@ -39,27 +40,39 @@ class AuthController extends Controller
             'message' => 'Register Success',
             'data' => [
                 'user' => [
+                    'id' => $siswa->id,
                     'name' => $siswa->name,
-                    'id' =>  $siswa->id,
                     'username' => $siswa->username,
                     'email' => $siswa->email,
-                    'role' => $siswa->role
+                    'role' => $siswa->role,
+                    'saldo' => $siswa->saldo
                 ]
             ],
             'token' => $token
-        ], 200);
+        ], 201);
     }
 
     public function login(Request $request)
     {
+        $val = Validator::make($request->all(), [
+            'username' => 'required',
+            'password' => 'required'
+        ]);
+
+        if ($val->fails()) {
+            return response()->json([
+                'message' => 'Invalid Fields',
+                'errors' => $val->errors()
+            ], 422);
+        }
+
         if (!Auth::attempt($request->only('username', 'password'))) {
             return response()->json([
                 'message' => 'Wrong username or password'
-            ]);
+            ], 401);
         }
 
         $user = Auth::user();
-
         $token = $user->createToken('api')->plainTextToken;
 
         return response()->json([
@@ -68,7 +81,10 @@ class AuthController extends Controller
                 'user' => [
                     'id' =>  $user->id,
                     'name' => $user->name,
-                    'role' => $user->role
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'saldo' => $user->saldo
                 ]
             ],
             'token' => $token
@@ -78,12 +94,11 @@ class AuthController extends Controller
     public function logout()
     {
         $user = Auth::user();
-
         $user->tokens()->delete();
 
         return response()->json([
             'message' => 'Logout Successfully'
-        ]);
+        ], 200);
     }
 
     public function me()
@@ -96,8 +111,9 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'username' => $user->username,
                 'email' => $user->email,
-                'role' => $user->role
+                'role' => $user->role,
+                'saldo' => $user->saldo
             ]
-        ]);
+        ], 200);
     }
 }
