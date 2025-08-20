@@ -34,7 +34,7 @@ class UserController extends Controller
             'username' => 'required|string|max:50|unique:users',
             'email' => 'required|email|unique:users',
             'password' => 'required|min:8',
-            'role' => ['required', Rule::in(['admin','bank','kantin', 'bc','siswa'])]
+            'role' => ['required', Rule::in(['admin', 'bank', 'canteen', 'bc', 'student'])]
         ]);
 
         if ($validator->fails()) {
@@ -69,7 +69,7 @@ class UserController extends Controller
             'username' => ['sometimes', Rule::unique('users')->ignore($user->id)],
             'email' => ['sometimes', 'email', Rule::unique('users')->ignore($user->id)],
             'password' => 'nullable|min:8',
-            'role' => ['sometimes', Rule::in(['admin','bank','kantin', 'bc', 'siswa'])]
+            'role' => ['sometimes', Rule::in(['admin', 'bank', 'canteen', 'bc', 'student'])]
         ]);
 
         if ($validator->fails()) {

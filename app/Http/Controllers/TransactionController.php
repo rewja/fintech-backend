@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use App\Models\Transaction;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -12,10 +14,21 @@ class TransactionController extends Controller
 {
     public function index()
     {
-        $transactions = Transaction::with('user, toUser')
-            ->where('to_user_id', auth()->id())
-            ->orWhere('user_id', auth()->id())
-            ->latest()->get();
+        $user = Auth::user();
+
+        if ($user->role === 'admin') {
+            // admin bisa lihat semua transaksi
+            $transactions = Transaction::with(['user', 'toUser', 'details.product'])
+                ->latest()->get();
+        } else {
+            // role lain hanya bisa lihat transaksi terkait dirinya
+            $transactions = Transaction::with(['user', 'toUser', 'details.product'])
+                ->where(function ($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                        ->orWhere('to_user_id', $user->id);
+                })
+                ->latest()->get();
+        }
 
         return response()->json([
             'success' => true,
@@ -23,13 +36,23 @@ class TransactionController extends Controller
         ], 200);
     }
 
-    public function show($id){
-        $transaction = Transaction::with(['user', 'toUser'])->finOrFail($id);
+    // GET /transactions/{id}
+    public function show($id)
+    {
+        $user = Auth::user();
 
-        if($transaction->user_id !== auth()->id() && $transaction->to_user_id !== auth()->id()){
-            return response()->json([
-                'message' => 'Unauthorized'
-            ], 403);
+        $transaction = Transaction::with(['user', 'toUser', 'details.product'])
+            ->findOrFail($id);
+
+        // admin bisa lihat semua
+        if ($user->role !== 'admin') {
+            // selain admin → hanya boleh akses kalau dia user atau to_user
+            if ($transaction->user_id !== $user->id && $transaction->to_user_id !== $user->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access to this transaction'
+                ], 403);
+            }
         }
 
         return response()->json([
@@ -37,79 +60,112 @@ class TransactionController extends Controller
             'data' => $transaction
         ], 200);
     }
-
     public function store(Request $request)
     {
         $val = Validator::make($request->all(), [
-            'type' => 'required|in:topup,purchase,withdraw',
-            'amount' => 'required|integer|min:1',
-            'to_user_id' => 'nullable|exists:users,id'
+            'type' => 'required|in:purchase,topup',
+            'amount' => 'required_if:type,topup,withdraw|integer|min:1',
+            'to_user_id' => 'nullable|exists:users,id',
+            'items' => 'array'
         ]);
 
-        if($val->fails()){
-            return response()->json([
-                'success' => false,
-                'errors' => $val->errors()
-            ], 422);
+        if ($val->fails()) {
+            return response()->json(['errors' => $val->errors()], 422);
         }
 
         DB::beginTransaction();
+        try {
+            $user = Auth::user();
 
-        try{
-            $user = auth()->id();
-
-            if($request->type === 'topup'){
+            // ✅ SELF TOPUP
+            if ($request->type === 'topup') {
                 $user->increment('balance', $request->amount);
+
+                $transaction = Transaction::create([
+                    'user_id' => $user->id,
+                    'type' => 'topup',
+                    'amount' => $request->amount,
+                    'source' => 'self'
+                ]);
+
+                DB::commit();
+                return response()->json([
+                    'message' => 'Balance topped up successfully',
+                    'data' => [
+                        'id' => $transaction->id,
+                        'type' => 'topup',
+                        'amount' => $request->amount,
+                        'from_user' => $user->name,
+                        'timestamp' => $transaction->created_at
+                    ]
+                ]);
             }
 
-            if($request->type === 'withdraw'){
-                if($user->balance < $request->amount){
-                    return response()->json([
-                        'message' => 'insufficient balance'
-                    , 400]);
+            // ✅ PURCHASE
+            if ($request->type === 'purchase') {
+                if (!$request->to_user_id || !$request->items) {
+                    return response()->json(['message' => 'Recipient & items required'], 422);
                 }
-                $user->decrement('balance', $request->amount);
+
+                $seller = User::findOrFail($request->to_user_id);
+
+                $total = 0;
+                $itemsData = [];
+
+                foreach ($request->items as $item) {
+                    $product = Product::findOrFail($item['product_id']);
+                    $qty = $item['qty'];
+                    $subtotal = $product->price * $qty;
+
+                    $total += $subtotal;
+
+                    $itemsData[] = [
+                        'product_id' => $product->id,
+                        'qty' => $qty,
+                        'price' => $product->price,
+                        'subtotal' => $subtotal
+                    ];
+                }
+
+                // cek saldo user
+                if ($user->balance < $total) {
+                    return response()->json(['message' => 'Insufficient balance'], 400);
+                }
+
+                // update saldo
+                $user->decrement('balance', $total);
+                $seller->increment('balance', $total);
+
+                // simpan transaksi
+                $transaction = Transaction::create([
+                    'user_id' => $user->id,
+                    'type' => 'purchase',
+                    'amount' => $total,
+                    'to_user_id' => $seller->id
+                ]);
+
+                foreach ($itemsData as $detail) {
+                    $transaction->details()->create($detail);
+                }
+
+                DB::commit();
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Purchase transaction successful',
+                    'data' => [
+                        'transaction_id' => $transaction->id,
+                        'buyer' => $user->name,
+                        'seller' => $seller->name,
+                        'total' => $total,
+                        'items' => $transaction->details()->with('product')->get(),
+                        'timestamp' => $transaction->created_at
+                    ]
+                ], 200);
             }
-
-            if($request->type === 'purchase'){
-                if(!$request->to_user_id){
-                    return response()->json([
-                        'message' => 'Recipient is required for purchase'
-                    ], 422);
-                }
-                if($user->balance < $request->amount) {
-                    return response()->json([
-                        'message' => 'insufficient balance'                    
-                    ], 400);
-                }
-
-                $user->decrement('balance', $request->amount);
-
-                $seller = User::find($request->to_user_id);
-                $seller->increment('balace', $request->amount);
-            }
-
-            $transaction = Transaction::create([
-                'user_id' => $user->id,
-                'type' => $user->type,
-                'amount' => $user->amount,
-                'to_user_id' => $user->to_user_id,
-            ]);
-
-            DB::commit();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Transactions successful',
-                'data' => $transaction->load(['user', 'toUser'])
-            ],201);
-        } catch (\Exception $e){
-            DB::rollback();
-            return response()->json([
-                'success' => false,
-                'mesagges' => 'Transaction failed: ' . $e->getMessage()
-            ], 500);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['message' => 'Transaction failed: ' . $e->getMessage()], 500);
         }
-
     }
 }

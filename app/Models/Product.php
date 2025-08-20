@@ -9,10 +9,10 @@ class Product extends Model
     protected $guarded = [];
 
     public function owner(){
-        $this->belongsTo(User::class, 'owner_id');
+       return $this->belongsTo(User::class, 'owner_id');
     }
 
-    public function transactionDetails(){
-        $this->hasMany(TransactionDetail::class, 'product_id');
+    public function details(){
+        return $this->hasMany(TransactionDetail::class, 'product_id');
     }
 }

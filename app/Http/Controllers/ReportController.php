@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Transaction;
-use App\Models\TransactionDetail;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,15 +19,22 @@ class ReportController extends Controller
             $transactions = Transaction::with(['user', 'toUser', 'details.product'])
                 ->where(function ($q) use ($user) {
                     $q->where('user_id', $user->id)->orWhere('to_user_id', $user->id);
-                })->whereIn('type', ['topup', 'withdraw'])->latest()->get();
-        } elseif (in_array($user->role, ['kantin', 'bc'])) {
-            $transactions = Transaction::with(['user', 'details.product'])->whereHas('details.product', function ($q) use ($user) {
-                $q->where('owner_id', $user->id);
-            })->latest()->get();
-        } else {
-            $transactions = Transaction::with(['user', 'toUser', 'details.product'])->whereHas(function ($q) use ($user) {
-                $q->where('user_id', $user->id)->where('to_user_id', $user->id);
-            })->latest->get();
+                })
+                ->whereIn('type', ['topup', 'withdraw'])
+                ->latest()->get();
+        } elseif (in_array($user->role, ['canteen', 'bc'])) {
+            $transactions = Transaction::with(['user', 'details.product'])
+                ->whereHas('details.product', function ($q) use ($user) {
+                    $q->where('owner_id', $user->id);
+                })
+                ->latest()->get();
+        } else { // student
+            $transactions = Transaction::with(['user', 'toUser', 'details.product'])
+                ->where(function ($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                      ->orWhere('to_user_id', $user->id);
+                })
+                ->latest()->get();
         }
 
         return response()->json([
@@ -42,19 +48,20 @@ class ReportController extends Controller
         $user = Auth::user();
         $today = Carbon::today();
 
-        $query = Transaction::with(['user', 'toUser', 'details.product'])->whereDate('created_at', $today);
+        $query = Transaction::with(['user', 'toUser', 'details.product'])
+            ->whereDate('created_at', $today);
 
         if ($user->role === 'bank') {
             $query->where(function ($q) use ($user) {
                 $q->where('user_id', $user->id)->orWhere('to_user_id', $user->id);
             })->whereIn('type', ['topup', 'withdraw']);
-        } elseif (in_array($user->role, ['kantin', 'bc'])) {
+        } elseif (in_array($user->role, ['canteen', 'bc'])) {
             $query->whereHas('details.product', function ($q) use ($user) {
                 $q->where('owner_id', $user->id);
             });
-        } elseif ($user->role === 'siswa') {
+        } elseif ($user->role === 'student') {
             $query->where(function ($q) use ($user) {
-                $q->where('user_id', $user->id)->where('to_user_id', $user->id);
+                $q->where('user_id', $user->id)->orWhere('to_user_id', $user->id);
             });
         }
 
@@ -63,7 +70,7 @@ class ReportController extends Controller
         return response()->json([
             'status' => 'success',
             'date' => $today->toDateString(),
-            'total_transaction' => $transactions->count,
+            'total_transaction' => $transactions->count(),
             'total_amount' => $transactions->sum('amount'),
             'data' => $transactions
         ]);
@@ -75,16 +82,19 @@ class ReportController extends Controller
         if ($auth->role !== 'admin') {
             return response()->json([
                 'status' => 'error',
-                'message' => 'forbidden'
-            ]);
+                'message' => 'Forbidden'
+            ], 403);
         }
 
-        $transactions = Transaction::with(['user', 'toUser', 'details.product'])->where('user_id', $id)->orWhere('to_user_id', $id)->latest()->get();
+        $transactions = Transaction::with(['user', 'toUser', 'details.product'])
+            ->where('user_id', $id)
+            ->orWhere('to_user_id', $id)
+            ->latest()->get();
 
         return response()->json([
             'status' => 'success',
             'user_id' =>  $id,
-            'transaction' => $transactions
+            'transactions' => $transactions
         ]);
     }
 
@@ -92,9 +102,13 @@ class ReportController extends Controller
     {
         $user = Auth::user();
 
-        $transactions = Transaction::with(['user', 'toUser', 'details.product'])->where(function ($q) use ($user) {
-            $q->where('user_id', $user->id)->orWhere('to_user_id', $user->id)->latest()->get();
-        });
+        $transactions = Transaction::with(['user', 'toUser', 'details.product'])
+            ->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                  ->orWhere('to_user_id', $user->id);
+            })
+            ->latest()
+            ->get();
 
         return response()->json([
             'status' => 'success',

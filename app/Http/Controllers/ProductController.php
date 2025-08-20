@@ -38,7 +38,7 @@ class ProductController extends Controller
         if ($val->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $val->fails()
+                'errors' => $val->errors()
             ], 422);
         }
 
@@ -58,7 +58,7 @@ class ProductController extends Controller
 
     public function update(Request $request, $id)
     {
-        $product = Product::findOrFail();
+        $product = Product::findOrFail($id);
 
         if($product->owner_id !== auth()->id()){
             return response()->json([
@@ -68,8 +68,8 @@ class ProductController extends Controller
 
         $val = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:100',
-            'price' => 'sometimes|numeric|main:0',
-            'stock' => 'sometimes|integer|main:0',
+            'price' => 'sometimes|numeric|min:0',
+            'stock' => 'sometimes|integer|min:0',
         ]);
 
         if ($val->fails()) {

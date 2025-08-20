@@ -13,12 +13,14 @@ return new class extends Migration
     {
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade'); // siapa yang melakukan transaksi
+            $table->foreignId('to_user_id')->nullable()->constrained('users')->onDelete('cascade'); // penerima (seller / siswa / dll)
             $table->enum('type', ['topup', 'withdraw', 'purchase']);
+            $table->enum('source', ['bank', 'self'])->default('bank'); // topup sumbernya bank/self
             $table->integer('amount');
-            $table->foreignId('to_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
         });
+
     }
 
     /**

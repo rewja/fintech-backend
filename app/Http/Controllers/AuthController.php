@@ -25,27 +25,27 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $siswa = User::create([
+        $student = User::create([
             'name' => $request->name,
             'username' => $request->username,
             'email' => $request->email,
             'password' => bcrypt($request->password),
-            'role' => 'siswa',
+            'role' => 'student',
             'balance' => 0 
         ]);
 
-        $token = $siswa->createToken('api')->plainTextToken;
+        $token = $student->createToken('api')->plainTextToken;
 
         return response()->json([
             'message' => 'Register Success',
             'data' => [
                 'user' => [
-                    'id' => $siswa->id,
-                    'name' => $siswa->name,
-                    'username' => $siswa->username,
-                    'email' => $siswa->email,
-                    'role' => $siswa->role,
-                    'balance' => $siswa->balance
+                    'id' => $student->id,
+                    'name' => $student->name,
+                    'username' => $student->username,
+                    'email' => $student->email,
+                    'role' => $student->role,
+                    'balance' => $student->balance
                 ]
             ],
             'token' => $token
