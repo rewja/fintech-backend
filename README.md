@@ -47,7 +47,7 @@ composer install
 php artisan migrate
 ```
 
-###5️⃣ Seed data
+### 5️⃣ Seed data
 ```bash
 php artisan db:seed
 ```
