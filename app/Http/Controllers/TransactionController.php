@@ -60,13 +60,14 @@ class TransactionController extends Controller
             'data' => $transaction
         ], 200);
     }
+
+    // POST /transactions
     public function store(Request $request)
     {
         $val = Validator::make($request->all(), [
             'type' => 'required|in:purchase,topup',
             'amount' => 'required_if:type,topup,withdraw|integer|min:1',
-            'to_user_id' => 'nullable|exists:users,id',
-            'items' => 'array'
+            'items' => 'array|required_if:type,purchase'
         ]);
 
         if ($val->fails()) {
@@ -103,14 +104,13 @@ class TransactionController extends Controller
 
             // ✅ PURCHASE
             if ($request->type === 'purchase') {
-                if (!$request->to_user_id || !$request->items) {
-                    return response()->json(['message' => 'Recipient & items required'], 422);
+                if (!$request->items) {
+                    return response()->json(['message' => 'Items required'], 422);
                 }
-
-                $seller = User::findOrFail($request->to_user_id);
 
                 $total = 0;
                 $itemsData = [];
+                $seller = null;
 
                 foreach ($request->items as $item) {
                     $product = Product::findOrFail($item['product_id']);
@@ -118,6 +118,15 @@ class TransactionController extends Controller
                     $subtotal = $product->price * $qty;
 
                     $total += $subtotal;
+
+                    // tentukan seller otomatis dari product.owner_id
+                    if (!$seller) {
+                        $seller = $product->owner;
+                    } elseif ($seller->id !== $product->owner_id) {
+                        return response()->json([
+                            'message' => 'All items must belong to the same seller'
+                        ], 400);
+                    }
 
                     $itemsData[] = [
                         'product_id' => $product->id,

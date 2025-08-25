@@ -20,7 +20,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'me']);
 
     Route::apiResource('users', UserController::class)->middleware('role:admin');
-    Route::apiResource('products', ProductController::class)->middleware('role:canteen,bc');
+    Route::get('products', [ProductController::class, 'index'])->middleware('role:canteen,bc,student,admin');
+    Route::get('products/{id}', [ProductController::class, 'show'])->middleware('role:canteen,bc,student,admin');
+
+    Route::post('products', [ProductController::class, 'store'])->middleware('role:canteen,bc');
+    Route::put('products/{id}', [ProductController::class, 'update'])->middleware('role:canteen,bc');
+    Route::delete('products/{id}', [ProductController::class, 'destroy'])->middleware('role:canteen,bc');
 
     Route::get('transactions', [TransactionController::class, 'index']);
     Route::get('transactions/{id}', [TransactionController::class, 'show']);
@@ -35,8 +40,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('balance/{id}', [BalanceController::class, 'show'])->middleware('role:admin');
     Route::put('balance/topup', [BalanceController::class, 'topup'])->middleware('role:bank');
     Route::put('balance/withdraw', [BalanceController::class, 'withdraw'])->middleware('role:bank');
-    
 });
-
-
-
